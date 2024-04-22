@@ -1,5 +1,5 @@
 // eslint-disable-next-line
-import DataLoader from './index.worker.js'
+import DataLoader from './microscopy.worker.js'
 
 // the taskId to assign to the next task added via addTask()
 let nextTaskId = 0
@@ -16,7 +16,7 @@ const defaultConfig = {
 }
 
 // limit number of web workers to avoid memory problems in certain browsers
-defaultConfig.maxWebWorkers = Math.min(defaultConfig.maxWebWorkers, 7)
+defaultConfig.maxWebWorkers = Math.min(defaultConfig.maxWebWorkers, 6)
 
 let config
 

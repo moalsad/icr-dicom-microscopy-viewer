@@ -64,3 +64,4 @@ build/
 dist/
 yarn.lock
 .vscode/
+.idea/
