@@ -2031,8 +2031,8 @@ class VolumeImageViewer {
     if (this[_controls].position != null) {
       const positionElement = this[_controls].position.element
       positionElement.style.position = 'absolute'
-      positionElement.style.right = '.5em'
-      positionElement.style.top = '.5em'
+      positionElement.style.right = '3em'
+      positionElement.style.top = '.65em'
       positionElement.style.left = 'auto'
       positionElement.style.bottom = 'auto'
       positionElement.style.fontWeight = '600'
