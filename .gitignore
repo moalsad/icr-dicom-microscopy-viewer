@@ -61,7 +61,7 @@ typings/
 .next
 node_modules/
 build/
-dist/
+#dist/
 yarn.lock
 .vscode/
 .idea/
