@@ -117,9 +117,11 @@ function getFrameMapping (metadata) {
    *  - segments (Segmentation)
    *  - mappings (Parametric Map)
    */
-  const numberOfFocalPlanes = Number(metadata.NumberOfFocalPlanes || 1)
-  if (numberOfFocalPlanes > 1) {
-    throw new Error('Images with multiple focal planes are not yet supported.')
+  const totalPixelMatrixPlanes = Number(metadata.TotalPixelMatrixFocalPlanes || 1)
+  if (totalPixelMatrixPlanes > 1) {
+    // throw new Error('Images with multiple focal planes are not yet supported.')
+    console.warn('Multiple focal planes is not fully supported. ' +
+      'If available, only the extended-depth-of-field image is displayed!');
   }
 
   const {
@@ -158,7 +160,7 @@ function getFrameMapping (metadata) {
     // Forth, along "channels"
     for (let i = 0; i < numberOfChannels; i++) {
       // Third, along the depth direction from glass slide -> coverslip
-      for (let p = 0; p < numberOfFocalPlanes; p++) {
+      for (let p = 0; p < totalPixelMatrixPlanes; p++) {
         // Second, along the column direction from top -> bottom
         for (let r = 0; r < tileRows; r++) {
           // First, along the row direction from left -> right
@@ -183,8 +185,11 @@ function getFrameMapping (metadata) {
                 `Could not determine channel of frame #${number}.`
               )
             }
-            const key = `${r + 1}-${c + 1}-${channelIdentifier}`
-            frameMapping[key] = `${sopInstanceUID}/frames/${number}`
+            // Supporting only the first focal plane for Images with multiple focal planes
+            // if (p === 0) {
+              const key = `${r + 1}-${c + 1}-${p + 1}-${channelIdentifier}`
+              frameMapping[key] = `${sopInstanceUID}/frames/${number}`
+            // }
             number += 1
           }
         }
@@ -246,7 +251,8 @@ function getFrameMapping (metadata) {
       } else {
         throw new Error(`Could not determine channel of frame ${number}.`)
       }
-      const key = `${rowIndex}-${colIndex}-${channelIdentifier}`
+      const planeIndex = 1;
+      const key = `${rowIndex}-${colIndex}-${planeIndex}-${channelIdentifier}`
       const frameNumber = j + 1
       frameMapping[key] = `${sopInstanceUID}/frames/${frameNumber}`
     }

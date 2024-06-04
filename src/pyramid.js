@@ -71,8 +71,13 @@ function _computeImagePyramid ({ metadata }) {
     return sizeDiff
   })
 
-  const pyramidMetadata = []
-  const pyramidFrameMappings = []
+  // Extended Depth of Field data (ExtendedDepthOfField = 'NO')
+  const separatePyramidMetadata = []
+  const separatePyramidFrameMappings = []
+  // Extended Depth of Field data (ExtendedDepthOfField = 'YES')
+  const combinedPyramidMetadata = []
+  const combinedPyramidFrameMappings = []
+
   let pyramidNumberOfChannels
   for (let i = 0; i < metadata.length; i++) {
     if (metadata[0].FrameOfReferenceUID !== metadata[i].FrameOfReferenceUID) {
@@ -86,9 +91,15 @@ function _computeImagePyramid ({ metadata }) {
       )
     }
 
+    const extendedDepthOfField = metadata[i].ExtendedDepthOfField || 'NO'
+    const isExtendedDepth = extendedDepthOfField === 'YES'
+    const pyramidMetadata = isExtendedDepth ? combinedPyramidMetadata : separatePyramidMetadata
+    const pyramidFrameMappings = isExtendedDepth ? combinedPyramidFrameMappings : separatePyramidFrameMappings
+
     const numberOfFrames = Number(metadata[i].NumberOfFrames || 1)
     const cols = metadata[i].TotalPixelMatrixColumns || metadata[i].Columns
     const rows = metadata[i].TotalPixelMatrixRows || metadata[i].Rows
+    const planes = metadata[i].TotalPixelMatrixFocalPlanes || 1
 
     const { frameMapping, numberOfChannels } = getFrameMapping(metadata[i])
     if (i > 0) {
@@ -117,7 +128,10 @@ function _computeImagePyramid ({ metadata }) {
         pyramidMetadata[j].TotalPixelMatrixRows ||
         pyramidMetadata[j].Rows
       )
-      if (r === rows && c === cols) {
+      const p = (
+        pyramidMetadata[j].TotalPixelMatrixFocalPlanes || 1
+      )
+      if (r === rows && c === cols && p === planes) {
         alreadyExists = true
         index = j
       }
@@ -129,7 +143,8 @@ function _computeImagePyramid ({ metadata }) {
        * concatentation part.
        */
       const rawMetadata = pyramidMetadata[index].json
-      rawMetadata['00280008'].Value[0] += numberOfFrames
+      const targetNumberOfFrames = parseInt(rawMetadata['00280008'].Value[0]) + numberOfFrames
+      rawMetadata['00280008'].Value[0] = targetNumberOfFrames.toString()
       if ('PerFrameFunctionalGroupsSequence' in metadata[index]) {
         rawMetadata['52009230'].Value.push(
           ...metadata[i].PerFrameFunctionalGroupsSequence
@@ -158,11 +173,75 @@ function _computeImagePyramid ({ metadata }) {
     }
   }
 
+  const nSeparateLevels = separatePyramidMetadata.length
+  const nCombinedLevels = combinedPyramidMetadata.length
+
+  if (nSeparateLevels === 0 && nCombinedLevels === 0) {
+    throw new Error('empty pyramid - no levels found')
+  }
+
+  const hasExtendedDepthOfField = nCombinedLevels > 0
+  const isExtendedDepthOfFieldActive = hasExtendedDepthOfField;
+
+  let separatePyramidData = {}
+  if (nSeparateLevels > 0) {
+    separatePyramidData = _preparePyramidData(
+      separatePyramidMetadata,
+      separatePyramidFrameMappings,
+      pyramidNumberOfChannels
+    )
+  }
+
+  let combinedPyramidData = {}
+  if (nCombinedLevels > 0) {
+    combinedPyramidData = _preparePyramidData(
+      combinedPyramidMetadata,
+      combinedPyramidFrameMappings,
+      pyramidNumberOfChannels
+    )
+  }
+
+  let data = {
+    separateData: separatePyramidData,
+    combinedData: combinedPyramidData,
+    hasExtendedDepthOfField,
+    isExtendedDepthOfFieldActive
+  }
+
+  if (isExtendedDepthOfFieldActive) {
+    data = {
+      ...data,
+      ...combinedPyramidData
+    }
+  } else {
+    data = {
+      ...data,
+      ...separatePyramidData
+    }
+  }
+
+  return data
+}
+
+function _preparePyramidData (
+  pyramidMetadata,
+  pyramidFrameMappings,
+  pyramidNumberOfChannels
+) {
   const nLevels = pyramidMetadata.length
   if (nLevels === 0) {
     console.error('empty pyramid - no levels found')
   }
   const pyramidBaseMetadata = pyramidMetadata[nLevels - 1]
+
+  let totalFocalPlanes
+  const extendedDepthOfField = pyramidBaseMetadata.ExtendedDepthOfField || 'NO'
+  const isExtendedDepth = extendedDepthOfField === 'YES'
+  if (isExtendedDepth) {
+    totalFocalPlanes = Number(pyramidBaseMetadata.NumberOfFocalPlanes || 1)
+  } else {
+    totalFocalPlanes = Number(pyramidBaseMetadata.TotalPixelMatrixFocalPlanes || 1)
+  }
 
   /*
    * Collect relevant information from DICOM metadata for each pyramid
@@ -263,7 +342,8 @@ function _computeImagePyramid ({ metadata }) {
     pixelSpacings: pyramidPixelSpacings,
     metadata: pyramidMetadata,
     frameMappings: pyramidFrameMappings,
-    numberOfChannels: pyramidNumberOfChannels
+    numberOfChannels: pyramidNumberOfChannels,
+    totalFocalPlanes
   }
 }
 
@@ -354,11 +434,13 @@ function _createTileLoadFunction ({
   pyramid,
   client,
   channel,
+  plane,
   iccProfiles,
   targetElement
 }) {
   return async (z, y, x) => {
     let index = (x + 1) + '-' + (y + 1)
+    index += `-${plane}`
     index += `-${channel}`
 
     if (pyramid.metadata[z] === undefined) {

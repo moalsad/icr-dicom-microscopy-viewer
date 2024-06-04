@@ -1069,7 +1069,8 @@ class VolumeImageViewer {
               this[_clients],
               Enums.SOPClassUIDs.VL_WHOLE_SLIDE_MICROSCOPY_IMAGE
             ),
-            channel: opticalPathIdentifier
+            channel: opticalPathIdentifier,
+            plane: 1
           },
           hasLoader: false
         }
@@ -1194,7 +1195,8 @@ class VolumeImageViewer {
             this[_clients],
             Enums.SOPClassUIDs.VL_WHOLE_SLIDE_MICROSCOPY_IMAGE
           ),
-          channel: opticalPathIdentifier
+          channel: opticalPathIdentifier,
+          plane: 1
         },
         hasLoader: false
       }
@@ -2041,6 +2043,33 @@ class VolumeImageViewer {
       positionElement.style.borderRadius = '4px'
       styleControlElement(positionElement)
     }
+  }
+
+  /**
+   * Has Extended Depth of Field.
+   *
+   * @type number
+   */
+  get hasExtendedDepthOfField () {
+    return this[_pyramid].hasExtendedDepthOfField
+  }
+
+  /**
+   * Is Extended Depth of Field active.
+   *
+   * @type number
+   */
+  get isExtendedDepthOfFieldActive () {
+    return this[_pyramid].isExtendedDepthOfFieldActive
+  }
+
+  /**
+   * Total number of focal lanes (TotalPixelMatrixFocalPlanes).
+   *
+   * @type number
+   */
+  get totalFocalPlanes () {
+    return this[_pyramid].totalFocalPlanes
   }
 
   /**
